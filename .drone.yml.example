@@ -1,0 +1,94 @@
+kind: pipeline
+name: default
+
+steps:
+  - name: build_package
+    image: registry.local/aws_lambda_ami
+    environment:
+      USERNAME_DAV_ENV:
+        from_secret: USERNAME_DAV
+      PASSWORD_DAV_ENV:
+        from_secret: PASSWORD_DAV
+      SSH_PUB_GIT_ENV:
+        from_secret: SSH_PUB_GIT
+      SSH_PRIV_GIT_ENV:
+        from_secret: SSH_PRIV_GIT
+      SSH_GIT_CONFIG_ENV:
+        from_secret: SSH_GIT_CONFIG
+      TF_VAR_aws_access_key:
+        from_secret: AWS_ACCESS_KEY
+      TF_VAR_aws_secret_key:
+        from_secret: AWS_SECRET_KEY
+      DAV_SERVER_NAME_ENV: "https://dav.local"
+      GIT_PORT_ENV: 10022
+    commands:
+      - mkdir -p /root/.ssh
+      - echo $SSH_GIT_CONFIG_ENV | base64 -d > /root/.ssh/config
+      - echo $SSH_PUB_GIT_ENV | base64 -d > /root/.ssh/aws_git_key.pub
+      - echo $SSH_PRIV_GIT_ENV | base64 -d > /root/.ssh/aws_git_key
+      - chmod 600 ~/.ssh/aws_git_key*
+      - /build.sh
+    when:
+      branch:
+        - master
+      event:
+        - push
+
+image_pull_secrets:
+  - docker_registryprivatehub
+
+---
+kind: secret
+name: docker_registryprivatehub
+get:
+  path: secret/data/docker_drone
+  name: config.json
+
+---
+kind: secret
+name: USERNAME_DAV
+get:
+  path: secret/data/lambda_build
+  name: dav_username
+
+---
+kind: secret
+name: PASSWORD_DAV
+get:
+  path: secret/data/lambda_build
+  name: dav_password
+
+---
+kind: secret
+name: SSH_PUB_GIT
+get:
+  path: secret/data/lambda_build
+  name: git_ssh_pub_key
+
+---
+kind: secret
+name: SSH_PRIV_GIT
+get:
+  path: secret/data/lambda_build
+  name: git_ssh_priv_key
+
+---
+kind: secret
+name: SSH_GIT_CONFIG
+get:
+  path: secret/data/lambda_build
+  name: git_ssh_config
+
+---
+kind: secret
+name: AWS_ACCESS_KEY
+get:
+  path: secret/data/lambda_build
+  name: aws_access_key
+
+---
+kind: secret
+name: AWS_SECRET_KEY
+get:
+  path: secret/data/lambda_build
+  name: aws_secret_key
