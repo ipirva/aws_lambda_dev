@@ -1,0 +1,40 @@
+FROM amazonlinux:2017.03.1.20170812
+MAINTAINER EMAILADDRESS
+LABEL name="lambda dev ami"
+# https://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
+
+ENV LC_ALL en_US.utf-8
+ENV LANG en_US.utf-8
+ENV TERRAFORM 0.11.13 
+
+RUN \
+    #sed -i 's;^releasever.*;releasever=2017.03;;' /etc/yum.conf \
+    #&& yum update -y \
+    yum  -y install git jq wget unzip \
+         python36 \
+         python36-pip \
+         zip \
+         python3-devel python36-devel gcc openssl-devel libffi-devel \
+    && yum clean all \
+    && alias python='/usr/bin/python3.6' && echo "alias python='/usr/bin/python3.6'" >> /root/.bashrc \
+    && alias python3='/usr/bin/python3.6' && echo "alias python='/usr/bin/python3.6'" >> /root/.bashrc \
+    && python3 -m pip install --upgrade pip \
+    && pip3 install pip-tools \
+    && python3 -m pip install boto3 \
+    && pip3 install virtualenv awscli
+RUN \
+    cd /tmp \
+    && TERRAFORM_FILE=terraform_${TERRAFORM}_linux_amd64.zip && TERRAFORM_SHA_FILE=terraform_${TERRAFORM}_SHA256SUMS \
+    && cd /tmp && wget -c https://releases.hashicorp.com/terraform/${TERRAFORM}/$TERRAFORM_FILE \
+    && wget -c https://releases.hashicorp.com/terraform/${TERRAFORM}/$TERRAFORM_SHA_FILE \
+    && cat $TERRAFORM_SHA_FILE | grep $TERRAFORM_FILE > TMP_SHA_FILE \
+    && if [ $(sha256sum -c TMP_SHA_FILE  2>&1 | grep OK | wc -l) != 1 ]; then echo "Message diget check failed for Terraform" >&2; exit 1; fi \
+    && unzip $TERRAFORM_FILE && mv terraform /usr/local/sbin && rm -rf *
+
+ADD files/bin/build.sh /
+
+RUN chmod 755 /build.sh
+
+ENV HOME /root
+WORKDIR /tmp
+CMD ["bash"]
